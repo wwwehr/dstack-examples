@@ -17,11 +17,96 @@ Run a single-node Kubernetes cluster inside an Intel TDX Confidential VM with wi
   npm install -g phala
   phala auth login
   ```
-- `kubectl` installed ([install guide](https://kubernetes.io/docs/tasks/tools/))
+- `kubectl` and `jq` installed ([kubectl install guide](https://kubernetes.io/docs/tasks/tools/))
 - A domain you control (for the wildcard certificate)
 - Cloudflare API token with **Zone:Read** and **DNS:Edit** permissions (see [DNS_PROVIDERS.md](../custom-domain/dstack-ingress/DNS_PROVIDERS.md) for other DNS providers)
 
 ## Quick Start
+
+The deploy script handles everything — CVM provisioning, kubeconfig extraction, certificate waiting, and a test workload:
+
+```bash
+export CLOUDFLARE_API_TOKEN=your-cloudflare-token
+export CERTBOT_EMAIL=you@example.com
+
+./deploy.sh k3s.example.com
+```
+
+Replace `k3s.example.com` with your actual domain. The script takes ~10 minutes (mostly waiting for the wildcard certificate). When done, it prints:
+
+```
+============================================
+  k3s on dstack is ready!
+============================================
+
+  Kubeconfig:  export KUBECONFIG=/path/to/k3s.yaml
+  kubectl:     kubectl get nodes
+  Test URL:    https://nginx.k3s.example.com/
+  Evidence:    https://nginx.k3s.example.com/evidences/quote
+```
+
+You can then deploy your own services:
+
+```bash
+export KUBECONFIG=k3s.yaml
+kubectl run my-app --image=my-app:latest --port=8080
+kubectl expose pod my-app --port=8080
+kubectl apply -f - <<EOF
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: my-app
+spec:
+  entryPoints: [web]
+  routes:
+    - match: Host(\`my-app.k3s.example.com\`)
+      kind: Rule
+      services:
+        - name: my-app
+          port: 8080
+EOF
+```
+
+### Clean Up
+
+Remove the test workload:
+
+```bash
+kubectl delete ingressroute.traefik.io nginx
+kubectl delete svc nginx
+kubectl delete pod nginx
+```
+
+Delete the CVM entirely:
+
+```bash
+echo y | phala cvms delete my-k3s
+rm k3s.yaml
+```
+
+### Configuration
+
+You can customize the deployment with environment variables:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `CVM_NAME` | `my-k3s` | CVM name |
+| `INSTANCE_TYPE` | `tdx.medium` | Instance type |
+| `DISK_SIZE` | `50G` | Disk size |
+| `KUBECONFIG_FILE` | `k3s.yaml` | Output kubeconfig path |
+
+Example:
+
+```bash
+CVM_NAME=prod-k3s INSTANCE_TYPE=tdx.4xlarge DISK_SIZE=100G ./deploy.sh k3s.example.com
+```
+
+## Step-by-Step Guide
+
+If you prefer to run each step manually instead of using the deploy script:
+
+<details>
+<summary>Click to expand manual steps</summary>
 
 ### 1. Deploy the CVM
 
@@ -37,8 +122,6 @@ phala deploy \
   -e "CLUSTER_DOMAIN=k3s.example.com" \
   --wait
 ```
-
-Replace `k3s.example.com` with your actual domain. All subdomains under it (e.g., `nginx.k3s.example.com`) will get TLS automatically.
 
 The `--dev-os` flag enables SSH access (needed to extract the kubeconfig). The `--disk-size 50G` gives enough room for k3s images and workloads.
 
@@ -107,54 +190,37 @@ Retry until you see an HTTP response (a 404 is fine — it means TLS works but n
 HTTP/1.1 404 Not Found
 ```
 
-### 5. Deploy and Test a Workload
-
-Run the included test script to deploy an nginx pod, verify HTTPS, check evidence endpoints, and confirm kubectl access — all in one command:
+### 5. Deploy a Test Workload
 
 ```bash
-./test.sh k3s.example.com
+CLUSTER_DOMAIN=k3s.example.com
+
+kubectl run nginx --image=nginx:alpine --port=80
+kubectl expose pod nginx --port=80 --target-port=80 --name=nginx
+kubectl wait --for=condition=Ready pod/nginx --timeout=120s
+
+kubectl apply -f - <<EOF
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: nginx
+spec:
+  entryPoints: [web]
+  routes:
+    - match: Host(\`nginx.${CLUSTER_DOMAIN}\`)
+      kind: Rule
+      services:
+        - name: nginx
+          port: 80
+EOF
+
+sleep 10
+curl -s "https://nginx.${CLUSTER_DOMAIN}/"
 ```
 
-Expected output:
+You should see the nginx welcome page served over HTTPS with a valid Let's Encrypt certificate.
 
-```
-==> Deploying test workload...
-==> Waiting for pod to be ready...
-==> Running smoke tests...
-
-  PASS: https://nginx.k3s.example.com/ returned 200
-  PASS: TLS cert CN matches *.k3s.example.com
-  PASS: /evidences/quote returned 200
-  PASS: /evidences/cc_eventlog returned 200
-  PASS: /evidences/raw_quote returned 200
-  PASS: k3s API /version returned 200
-  PASS: kubectl reports node Ready
-
-==> Results: 7/7 passed
-```
-
-The test workload stays running so you can try it yourself:
-
-```bash
-curl "https://nginx.k3s.example.com/"
-```
-
-### 6. Clean Up
-
-Remove the test workload:
-
-```bash
-kubectl delete ingressroute.traefik.io nginx
-kubectl delete svc nginx
-kubectl delete pod nginx
-```
-
-Delete the CVM entirely:
-
-```bash
-echo y | phala cvms delete my-k3s
-rm k3s.yaml
-```
+</details>
 
 ## How It Works
 
@@ -203,9 +269,7 @@ External HTTPS traffic hits dstack-ingress, which terminates TLS using the wildc
 4. The decrypted HTTP traffic is forwarded to Traefik on port 80
 5. Traefik matches the `Host` header against IngressRoute rules and routes to the right pod
 
-## Configuration
-
-### Environment Variables
+## Environment Variables
 
 | Variable | Required | Description |
 |----------|----------|-------------|
@@ -310,7 +374,7 @@ phala ssh <app-id> -- "docker logs dstack-k3s-1 2>&1 | tail -30"
 ```
 k3s/
 ├── docker-compose.yaml          # k3s + kmod-installer + dstack-ingress
-├── test.sh                      # One-command smoke test
+├── deploy.sh                    # One-command deploy + setup
 ├── README.md
 └── manifests/
     ├── rbac.yaml                # Optional: scoped service account
