@@ -1,0 +1,64 @@
+services:
+  kmod-installer:
+    image: kvin/dstack-extra-kmods:0.5.8
+    privileged: true
+    pid: host
+    volumes:
+      - /:/host
+    restart: "no"
+
+  k3s:
+    image: rancher/k3s:v1.31.6-k3s1
+    command:
+      - server
+      - --node-name=${K3S_NODE_NAME:-k3s-node}
+      - --tls-san=0.0.0.0
+      - --tls-san=${DSTACK_APP_ID}-6443s.${DSTACK_GATEWAY_DOMAIN}
+      - --kubelet-arg=max-pods=512
+    privileged: true
+    ports:
+      - "6443:6443"     # Kubernetes API (TLS passthrough via gateway)
+      - "80:80"          # Traefik HTTP entrypoint
+      - "8443:443"       # Traefik HTTPS entrypoint (internal)
+    environment:
+      - K3S_KUBECONFIG_MODE=644
+    tmpfs:
+      - /run
+      - /var/run
+    volumes:
+      - k3s-data:/var/lib/rancher/k3s
+      - k3s-kubelet:/var/lib/kubelet
+      - k3s-etc:/etc/rancher
+      - k3s-log:/var/log
+    depends_on:
+      kmod-installer:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  dstack-ingress:
+    image: dstacktee/dstack-ingress:2.1@sha256:36894662bdd252d53e8492be147f43dd7d91a5732a78a2a85f39e55c1460b4d0
+    ports:
+      - "443:443"
+    environment:
+      - DNS_PROVIDER=cloudflare
+      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
+      - DOMAIN=*.${CLUSTER_DOMAIN}
+      - GATEWAY_DOMAIN=_.${DSTACK_GATEWAY_DOMAIN}
+      - CERTBOT_EMAIL=${CERTBOT_EMAIL}
+      - SET_CAA=true
+      - TARGET_ENDPOINT=k3s:80
+      - EVIDENCE_PORT=8080
+    volumes:
+      - /var/run/dstack.sock:/var/run/dstack.sock
+      - /var/run/tappd.sock:/var/run/tappd.sock
+      - cert-data:/etc/letsencrypt
+    depends_on:
+      - k3s
+    restart: unless-stopped
+
+volumes:
+  k3s-data:
+  k3s-kubelet:
+  k3s-etc:
+  k3s-log:
+  cert-data:
