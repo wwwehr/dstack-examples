@@ -155,9 +155,13 @@ EOF
     if [ "$EVIDENCE_SERVER" = "true" ]; then
         cat <<'EVIDENCE_BLOCK' >>/etc/haproxy/haproxy.cfg
 
-    # Route /evidences requests to local evidence HTTP server
+    # Route /evidences requests to the local evidence HTTP server.
+    # inspect-delay sets the upper bound for buffering; the accept rule
+    # fires as soon as any application data is present in the buffer
+    # (after SSL termination a full TLS record is decrypted atomically,
+    # so the complete HTTP request is available on first evaluation).
     tcp-request inspect-delay 5s
-    tcp-request content accept if WAIT_END
+    tcp-request content accept if { req.len gt 0 }
     acl is_evidence payload(0,0) -m beg "GET /evidences"
     acl is_evidence payload(0,0) -m beg "HEAD /evidences"
     use_backend be_evidence if is_evidence
