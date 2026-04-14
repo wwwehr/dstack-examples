@@ -156,14 +156,16 @@ EOF
         cat <<'EVIDENCE_BLOCK' >>/etc/haproxy/haproxy.cfg
 
     # Route /evidences requests to the local evidence HTTP server.
-    # inspect-delay sets the upper bound for buffering; the accept rule
-    # fires as soon as any application data is present in the buffer
-    # (after SSL termination a full TLS record is decrypted atomically,
-    # so the complete HTTP request is available on first evaluation).
+    # accept fires once 16 bytes have arrived — enough for the
+    # longest prefix we match ("HEAD /evidences" = 16 chars).
+    # Using req.len with a concrete threshold is critical: the
+    # previous payload(0,0) (length 0 = "whole buffer") deferred
+    # evaluation until the full inspect-delay because HAProxy
+    # cannot know when a TCP stream ends.
     tcp-request inspect-delay 5s
-    tcp-request content accept if { req.len gt 0 }
-    acl is_evidence payload(0,0) -m beg "GET /evidences"
-    acl is_evidence payload(0,0) -m beg "HEAD /evidences"
+    tcp-request content accept if { req.len ge 16 }
+    acl is_evidence payload(0,16) -m beg "GET /evidences"
+    acl is_evidence payload(0,16) -m beg "HEAD /evidences"
     use_backend be_evidence if is_evidence
 EVIDENCE_BLOCK
     fi
