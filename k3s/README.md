@@ -107,38 +107,37 @@ Retry until you see an HTTP response (a 404 is fine — it means TLS works but n
 HTTP/1.1 404 Not Found
 ```
 
-### 5. Deploy a Test Workload
+### 5. Deploy and Test a Workload
+
+Run the included test script to deploy an nginx pod, verify HTTPS, check evidence endpoints, and confirm kubectl access — all in one command:
 
 ```bash
-CLUSTER_DOMAIN=k3s.example.com
-
-# Create an nginx pod and service
-kubectl run nginx --image=nginx:alpine --port=80
-kubectl expose pod nginx --port=80 --target-port=80 --name=nginx
-kubectl wait --for=condition=Ready pod/nginx --timeout=120s
-
-# Create a Traefik IngressRoute to route traffic to nginx
-kubectl apply -f - <<EOF
-apiVersion: traefik.io/v1alpha1
-kind: IngressRoute
-metadata:
-  name: nginx
-spec:
-  entryPoints: [web]
-  routes:
-    - match: Host(\`nginx.${CLUSTER_DOMAIN}\`)
-      kind: Rule
-      services:
-        - name: nginx
-          port: 80
-EOF
-
-# Wait for route propagation, then test
-sleep 10
-curl -s "https://nginx.${CLUSTER_DOMAIN}/"
+./test.sh k3s.example.com
 ```
 
-You should see the nginx welcome page served over HTTPS with a valid Let's Encrypt certificate.
+Expected output:
+
+```
+==> Deploying test workload...
+==> Waiting for pod to be ready...
+==> Running smoke tests...
+
+  PASS: https://nginx.k3s.example.com/ returned 200
+  PASS: TLS cert CN matches *.k3s.example.com
+  PASS: /evidences/quote returned 200
+  PASS: /evidences/cc_eventlog returned 200
+  PASS: /evidences/raw_quote returned 200
+  PASS: k3s API /version returned 200
+  PASS: kubectl reports node Ready
+
+==> Results: 7/7 passed
+```
+
+The test workload stays running so you can try it yourself:
+
+```bash
+curl "https://nginx.k3s.example.com/"
+```
 
 ### 6. Clean Up
 
@@ -311,6 +310,7 @@ phala ssh <app-id> -- "docker logs dstack-k3s-1 2>&1 | tail -30"
 ```
 k3s/
 ├── docker-compose.yaml          # k3s + kmod-installer + dstack-ingress
+├── test.sh                      # One-command smoke test
 ├── README.md
 └── manifests/
     ├── rbac.yaml                # Optional: scoped service account
