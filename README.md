@@ -9,7 +9,7 @@
 
 **Example applications for [dstack](https://github.com/Dstack-TEE/dstack) - Deploy containerized apps to TEEs with end-to-end security in minutes**
 
-[Getting Started](#getting-started) • [Use Cases](#use-cases) • [Core Patterns](#core-patterns) • [Dev Tools](#dev-scaffolding) • [Starter Packs](#starter-packs) • [Other Use Cases](#other-use-cases)
+[Getting Started](#getting-started) • [Use Cases](#use-cases) • [Core Patterns](#core-patterns) • [Infrastructure](#infrastructure) • [Dev Tools](#dev-scaffolding) • [Starter Packs](#starter-packs) • [Other Use Cases](#other-use-cases)
 
 </div>
 
@@ -149,6 +149,16 @@ Development and debugging tools. **Not for production.**
 | [webshell](./webshell) | Web-based shell access for debugging |
 | [ssh-over-gateway](./ssh-over-gateway) | SSH tunneling through dstack gateway |
 | [tcp-port-forwarding](./tcp-port-forwarding) | Arbitrary TCP port forwarding |
+
+---
+
+## Infrastructure
+
+Run infrastructure services inside TEEs.
+
+| Example | Description |
+|---------|-------------|
+| [k3s](./k3s) | Single-node k3s cluster in a TEE with wildcard HTTPS and remote kubectl |
 
 ---
 
