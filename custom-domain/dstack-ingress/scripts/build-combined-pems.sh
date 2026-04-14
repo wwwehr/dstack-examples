@@ -4,6 +4,8 @@
 
 set -e
 
+source /scripts/functions.sh
+
 CERT_DIR="/etc/haproxy/certs"
 mkdir -p "$CERT_DIR"
 
@@ -11,7 +13,7 @@ all_domains=$(get-all-domains.sh)
 
 while IFS= read -r domain; do
     [[ -n "$domain" ]] || continue
-    le_dir="/etc/letsencrypt/live/${domain}"
+    le_dir="/etc/letsencrypt/live/$(cert_dir_name "$domain")"
     combined="${CERT_DIR}/${domain}.pem"
     if [ -f "${le_dir}/fullchain.pem" ] && [ -f "${le_dir}/privkey.pem" ]; then
         cat "${le_dir}/fullchain.pem" "${le_dir}/privkey.pem" > "$combined"
