@@ -35,7 +35,7 @@ You can use a wildcard domain (e.g. `*.myapp.com`) to route all subdomains to a 
 ```yaml
 services:
   dstack-ingress:
-    image: dstacktee/dstack-ingress:2.1@sha256:36894662bdd252d53e8492be147f43dd7d91a5732a78a2a85f39e55c1460b4d0
+    image: dstacktee/dstack-ingress:2.2
     ports:
       - "443:443"
     environment:
@@ -64,7 +64,7 @@ volumes:
 ```yaml
 services:
   dstack-ingress:
-    image: dstacktee/dstack-ingress:2.1@sha256:36894662bdd252d53e8492be147f43dd7d91a5732a78a2a85f39e55c1460b4d0
+    image: dstacktee/dstack-ingress:2.2
     ports:
       - "443:443"
     environment:
@@ -102,7 +102,7 @@ Use `ROUTING_MAP` to route different domains to different backends via SNI:
 ```yaml
 services:
   ingress:
-    image: dstacktee/dstack-ingress:2.1@sha256:36894662bdd252d53e8492be147f43dd7d91a5732a78a2a85f39e55c1460b4d0
+    image: dstacktee/dstack-ingress:2.2
     ports:
       - "443:443"
     environment:
