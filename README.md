@@ -9,7 +9,7 @@
 
 **Example applications for [dstack](https://github.com/Dstack-TEE/dstack) - Deploy containerized apps to TEEs with end-to-end security in minutes**
 
-[Getting Started](#getting-started) • [Use Cases](#use-cases) • [Core Patterns](#core-patterns) • [Infrastructure](#infrastructure) • [Dev Tools](#dev-scaffolding) • [Starter Packs](#starter-packs) • [Other Use Cases](#other-use-cases)
+[Getting Started](#getting-started) • [Confidential AI](#confidential-ai) • [Use Cases](#use-cases) • [Core Patterns](#core-patterns) • [Infrastructure](#infrastructure) • [Dev Tools](#dev-scaffolding) • [Starter Packs](#starter-packs) • [Other Use Cases](#other-use-cases)
 
 </div>
 
@@ -58,6 +58,22 @@ phala deploy -n my-app -c docker-compose.yaml
 ```
 
 See [Phala Cloud](https://cloud.phala.network) for production TEE deployment.
+
+---
+
+## Confidential AI
+
+Run AI workloads where prompts, model weights, and inference stay encrypted in hardware.
+
+| Example | Description |
+|---------|-------------|
+| [confidential-ai/inference](./confidential-ai/inference) | Private LLM inference with vLLM on Confidential GPU |
+| [confidential-ai/training](./confidential-ai/training) | Confidential fine-tuning on sensitive data using Unsloth |
+| [confidential-ai/agents](./confidential-ai/agents) | Secure AI agent with TEE-derived wallet keys using LangChain and Confidential AI models |
+
+GPU deployments require: `--instance-type h200.small --region US-EAST-1 --image dstack-nvidia-dev-0.5.4.1`
+
+See [Confidential AI Guide](https://github.com/Dstack-TEE/dstack/blob/master/docs/confidential-ai.md) for concepts and security model.
 
 ---
 
